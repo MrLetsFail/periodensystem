@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interaktives Periodensystem</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <style>
+        :root {
+            --alkali-metal: #ff8a65;
+            --alkaline-earth: #ffb74d;
+            --transition-metal: #ffd54f;
+            --post-transition: #dce775;
+            --metalloid: #aed581;
+            --nonmetal: #81c784;
+            --halogen: #4db6ac;
+            --noble-gas: #4dd0e1;
+            --lanthanide: #9575cd;
+            --actinide: #ba68c8;
+            --unknown: #e0e0e0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+        
+        #periodic-table {
+            display: grid;
+            grid-template-columns: repeat(18, minmax(60px, 1fr));
+            grid-template-rows: auto;
+            gap: 4px;
+            max-width: 1500px;
+            margin: 0 auto;
+        }
+        
+        .element {
+            position: relative;
+            aspect-ratio: 1;
+            border-radius: 4px;
+            padding: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+        
+        .element:hover {
+            transform: scale(1.05);
+            z-index: 10;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .element.active {
+            transform: scale(1.1);
+            z-index: 20;
+        }
+        
+        .atomic-number {
+            font-size: 0.7em;
+            text-align: left;
+        }
+        
+        .symbol {
+            font-size: 1.8em;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .name {
+            font-size: 0.65em;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .weight {
+            font-size: 0.6em;
+            text-align: center;
+            opacity: 0.8;
+        }
+        
+        #element-detail {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 800px;
+            background-color: #1e1e1e;
+            border-radius: 8px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            display: none;
+            overflow: hidden;
+        }
+        
+        #detail-header {
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #333;
+        }
+        
+        #detail-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+        
+        #atom-container {
+            width: 100%;
+            height: 300px;
+            background-color: #0a0a0a;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        #element-properties {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .property-row {
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .property-name {
+            font-weight: bold;
+            color: #aaa;
+        }
+        
+        #modal-close {
+            cursor: pointer;
+            font-size: 24px;
+            color: #777;
+            transition: color 0.2s;
+        }
+        
+        #modal-close:hover {
+            color: #fff;
+        }
+        
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 90;
+            display: none;
+        }
+        
+        .category {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        
+        .legend {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 20px auto;
+            max-width: 1200px;
+            padding: 10px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            font-size: 0.8em;
+        }
+        
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            margin-right: 8px;
+        }
+        
+        .alkali-metal { background-color: var(--alkali-metal); }
+        .alkaline-earth { background-color: var(--alkaline-earth); }
+        .transition-metal { background-color: var(--transition-metal); }
+        .post-transition { background-color: var(--post-transition); }
+        .metalloid { background-color: var(--metalloid); }
+        .nonmetal { background-color: var(--nonmetal); }
+        .halogen { background-color: var(--halogen); }
+        .noble-gas { background-color: var(--noble-gas); }
+        .lanthanide { background-color: var(--lanthanide); }
+        .actinide { background-color: var(--actinide); }
+        .unknown { background-color: var(--unknown); }
+        
+        .title-container {
+            text-align: center;
+            margin: 20px auto;
+            animation: fadeIn 1.5s ease-in-out;
+        }
+        
+        .title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(90deg, #ff4d4d, #f9cb28, #34ebb4, #4dabf7);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            color: #aaa;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 1200px) {
+            #periodic-table {
+                grid-template-columns: repeat(18, minmax(40px, 1fr));
+                font-size: 0.9em;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            #periodic-table {
+                grid-template-columns: repeat(18, minmax(30px, 1fr));
+                font-size: 0.8em;
+            }
+            
+            #detail-content {
+                grid-template-columns: 1fr;
+            }
+            
+            #atom-container {
+                height: 250px;
+            }
+        }
+        
+        .separator {
+            grid-column: span 18;
+            text-align: center;
+            padding: 5px 0;
+            font-size: 0.9em;
+            color: #aaa;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background-color: rgba(40, 40, 40, 0.95);
+            color: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            z-index: 50;
+            max-width: 200px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+            gap: 20px;
+        }
+
+        .control-btn {
+            background-color: #333;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .control-btn:hover {
+            background-color: #555;
+        }
+
+        .electron-shell {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: dash 10s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="title-container">
+        <h1 class="title">Interaktives Periodensystem der Elemente</h1>
+        <p class="subtitle">Entdecken Sie die Bausteine unserer Welt</p>
+    </div>
+
+    <div class="controls">
+        <button class="control-btn" id="reset-view">Zurücksetzen</button>
+        <select class="control-btn" id="color-scheme">
+            <option value="category">Nach Kategorie färben</option>
+            <option value="state">Nach Aggregatzustand färben</option>
+            <option value="period">Nach Periode färben</option>
+        </select>
+    </div>
+
+    <div class="legend" id="legend"></div>
+    
+    <div id="periodic-table"></div>
+    
+    <div id="overlay"></div>
+    
+    <div id="element-detail">
+        <div id="detail-header">
+            <div>
+                <h2 id="detail-symbol" class="text-3xl font-bold"></h2>
+                <h3 id="detail-name" class="text-xl"></h3>
+            </div>
+            <span id="modal-close">&times;</span>
+        </div>
+        <div id="detail-content">
+            <div id="atom-container"></div>
+            <div id="element-properties"></div>
+        </div>
+    </div>
+    
+    <div class="tooltip" id="tooltip"></div>
+
+    <script>
+        // Periodic table data
+        const elements = [
+            {id: 1, symbol: 'H', name: 'Wasserstoff', atomicWeight: 1.008, category: 'nonmetal', group: 1, period: 1, state: 'gas', electronConfig: '1s¹', electronegativity: 2.20, atomicRadius: 38, ionizationEnergy: 13.598, density: 0.00008988, meltingPoint: -259.16, boilingPoint: -252.87, discoveryYear: 1766},
+            {id: 2, symbol: 'He', name: 'Helium', atomicWeight: 4.0026, category: 'noble-gas', group: 18, period: 1, state: 'gas', electronConfig: '1s²', electronegativity: null, atomicRadius: 32, ionizationEnergy: 24.587, density: 0.0001785, meltingPoint: -272.2, boilingPoint: -268.93, discoveryYear: 1868},
+            {id: 3, symbol: 'Li', name: 'Lithium', atomicWeight: 6.94, category: 'alkali-metal', group: 1, period: 2, state: 'solid', electronConfig: '[He] 2s¹', electronegativity: 0.98, atomicRadius: 152, ionizationEnergy: 5.392, density: 0.534, meltingPoint: 180.54, boilingPoint: 1342, discoveryYear: 1817},
+            {id: 4, symbol: 'Be', name: 'Beryllium', atomicWeight: 9.0122, category: 'alkaline-earth', group: 2, period: 2, state: 'solid', electronConfig: '[He] 2s²', electronegativity: 1.57, atomicRadius: 112, ionizationEnergy: 9.323, density: 1.85, meltingPoint: 1287, boilingPoint: 2469, discoveryYear: 1797},
+            {id: 5, symbol: 'B', name: 'Bor', atomicWeight: 10.81, category: 'metalloid', group: 13, period: 2, state: 'solid', electronConfig: '[He] 2s² 2p¹', electronegativity: 2.04, atomicRadius: 85, ionizationEnergy: 8.298, density: 2.34, meltingPoint: 2077, boilingPoint: 4000, discoveryYear: 1808},
+            {id: 6, symbol: 'C', name: 'Kohlenstoff', atomicWeight: 12.011, category: 'nonmetal', group: 14, period: 2, state: 'solid', electronConfig: '[He] 2s² 2p²', electronegativity: 2.55, atomicRadius: 77, ionizationEnergy: 11.260, density: 2.267, meltingPoint: 3550, boilingPoint: 4027, discoveryYear: 'Urzeit'},
+            {id: 7, symbol: 'N', name: 'Stickstoff', atomicWeight: 14.007, category: 'nonmetal', group: 15, period: 2, state: 'gas', electronConfig: '[He] 2s² 2p³', electronegativity: 3.04, atomicRadius: 75, ionizationEnergy: 14.534, density: 0.0012506, meltingPoint: -210.1, boilingPoint: -195.79, discoveryYear: 1772},
+            {id: 8, symbol: 'O', name: 'Sauerstoff', atomicWeight: 15.999, category: 'nonmetal', group: 16, period: 2, state: 'gas', electronConfig: '[He] 2s² 2p⁴', electronegativity: 3.44, atomicRadius: 73, ionizationEnergy: 13.618, density: 0.001429, meltingPoint: -218.79, boilingPoint: -182.96, discoveryYear: 1774},
+            {id: 9, symbol: 'F', name: 'Fluor', atomicWeight: 18.998, category: 'halogen', group: 17, period: 2, state: 'gas', electronConfig: '[He] 2s² 2p⁵', electronegativity: 3.98, atomicRadius: 71, ionizationEnergy: 17.423, density: 0.001696, meltingPoint: -219.67, boilingPoint: -188.12, discoveryYear: 1886},
+            {id: 10, symbol: 'Ne', name: 'Neon', atomicWeight: 20.180, category: 'noble-gas', group: 18, period: 2, state: 'gas', electronConfig: '[He] 2s² 2p⁶', electronegativity: null, atomicRadius: 69, ionizationEnergy: 21.565, density: 0.0008999, meltingPoint: -248.59, boilingPoint: -246.08, discoveryYear: 1898},
+            {id: 11, symbol: 'Na', name: 'Natrium', atomicWeight: 22.990, category: 'alkali-metal', group: 1, period: 3, state: 'solid', electronConfig: '[Ne] 3s¹', electronegativity: 0.93, atomicRadius: 186, ionizationEnergy: 5.139, density: 0.971, meltingPoint: 97.72, boilingPoint: 883, discoveryYear: 1807},
+            {id: 12, symbol: 'Mg', name: 'Magnesium', atomicWeight: 24.305, category: 'alkaline-earth', group: 2, period: 3, state: 'solid', electronConfig: '[Ne] 3s²', electronegativity: 1.31, atomicRadius: 160, ionizationEnergy: 7.646, density: 1.738, meltingPoint: 650, boilingPoint: 1090, discoveryYear: 1808},
+            {id: 13, symbol: 'Al', name: 'Aluminium', atomicWeight: 26.982, category: 'post-transition', group: 13, period: 3, state: 'solid', electronConfig: '[Ne] 3s² 3p¹', electronegativity: 1.61, atomicRadius: 143, ionizationEnergy: 5.986, density: 2.7, meltingPoint: 660.32, boilingPoint: 2519, discoveryYear: 1827},
+            {id: 14, symbol: 'Si', name: 'Silicium', atomicWeight: 28.085, category: 'metalloid', group: 14, period: 3, state: 'solid', electronConfig: '[Ne] 3s² 3p²', electronegativity: 1.9, atomicRadius: 117, ionizationEnergy: 8.152, density: 2.3296, meltingPoint: 1414, boilingPoint: 3265, discoveryYear: 1824},
+            {id: 15, symbol: 'P', name: 'Phosphor', atomicWeight: 30.974, category: 'nonmetal', group: 15, period: 3, state: 'solid', electronConfig: '[Ne] 3s² 3p³', electronegativity: 2.19, atomicRadius: 110, ionizationEnergy: 10.487, density: 1.82, meltingPoint: 44.15, boilingPoint: 280.5, discoveryYear: 1669},
+            {id: 16, symbol: 'S', name: 'Schwefel', atomicWeight: 32.06, category: 'nonmetal', group: 16, period: 3, state: 'solid', electronConfig: '[Ne] 3s² 3p⁴', electronegativity: 2.58, atomicRadius: 103, ionizationEnergy: 10.360, density: 2.067, meltingPoint: 115.21, boilingPoint: 444.61, discoveryYear: 'Urzeit'},
+            {id: 17, symbol: 'Cl', name: 'Chlor', atomicWeight: 35.45, category: 'halogen', group: 17, period: 3, state: 'gas', electronConfig: '[Ne] 3s² 3p⁵', electronegativity: 3.16, atomicRadius: 99, ionizationEnergy: 12.968, density: 0.003214, meltingPoint: -101.5, boilingPoint: -34.04, discoveryYear: 1774},
+            {id: 18, symbol: 'Ar', name: 'Argon', atomicWeight: 39.95, category: 'noble-gas', group: 18, period: 3, state: 'gas', electronConfig: '[Ne] 3s² 3p⁶', electronegativity: null, atomicRadius: 97, ionizationEnergy: 15.760, density: 0.0017837, meltingPoint: -189.34, boilingPoint: -185.85, discoveryYear: 1894},
+            {id: 19, symbol: 'K', name: 'Kalium', atomicWeight: 39.098, category: 'alkali-metal', group: 1, period: 4, state: 'solid', electronConfig: '[Ar] 4s¹', electronegativity: 0.82, atomicRadius: 227, ionizationEnergy: 4.341, density: 0.862, meltingPoint: 63.38, boilingPoint: 759, discoveryYear: 1807},
+            {id: 20, symbol: 'Ca', name: 'Calcium', atomicWeight: 40.078, category: 'alkaline-earth', group: 2, period: 4, state: 'solid', electronConfig: '[Ar] 4s²', electronegativity: 1.00, atomicRadius: 197, ionizationEnergy: 6.113, density: 1.54, meltingPoint: 842, boilingPoint: 1484, discoveryYear: 1808},
+            {id: 21, symbol: 'Sc', name: 'Scandium', atomicWeight: 44.956, category: 'transition-metal', group: 3, period: 4, state: 'solid', electronConfig: '[Ar] 3d¹ 4s²', electronegativity: 1.36, atomicRadius: 162, ionizationEnergy: 6.561, density: 2.989, meltingPoint: 1541, boilingPoint: 2830, discoveryYear: 1879},
+            {id: 22, symbol: 'Ti', name: 'Titan', atomicWeight: 47.867, category: 'transition-metal', group: 4, period: 4, state: 'solid', electronConfig: '[Ar] 3d² 4s²', electronegativity: 1.54, atomicRadius: 147, ionizationEnergy: 6.828, density: 4.54, meltingPoint: 1668, boilingPoint: 3287, discoveryYear: 1791},
+            {id: 23, symbol: 'V', name: 'Vanadium', atomicWeight: 50.942, category: 'transition-metal', group: 5, period: 4, state: 'solid', electronConfig: '[Ar] 3d³ 4s²', electronegativity: 1.63, atomicRadius: 134, ionizationEnergy: 6.746, density: 6.11, meltingPoint: 1910, boilingPoint: 3407, discoveryYear: 1801},
+            {id: 24, symbol: 'Cr', name: 'Chrom', atomicWeight: 51.996, category: 'transition-metal', group: 6, period: 4, state: 'solid', electronConfig: '[Ar] 3d⁵ 4s¹', electronegativity: 1.66, atomicRadius: 128, ionizationEnergy: 6.767, density: 7.15, meltingPoint: 1907, boilingPoint: 2671, discoveryYear: 1797},
+            {id: 25, symbol: 'Mn', name: 'Mangan', atomicWeight: 54.938, category: 'transition-metal', group: 7, period: 4, state: 'solid', electronConfig: '[Ar] 3d⁵ 4s²', electronegativity: 1.55, atomicRadius: 127, ionizationEnergy: 7.434, density: 7.44, meltingPoint: 1246, boilingPoint: 2061, discoveryYear: 1774},
+            {id: 26, symbol: 'Fe', name: 'Eisen', atomicWeight: 55.845, category: 'transition-metal', group: 8, period: 4, state: 'solid', electronConfig: '[Ar] 3d⁶ 4s²', electronegativity: 1.83, atomicRadius: 126, ionizationEnergy: 7.902, density: 7.874, meltingPoint: 1538, boilingPoint: 2861, discoveryYear: 'Urzeit'},
+            {id: 27, symbol: 'Co', name: 'Cobalt', atomicWeight: 58.933, category: 'transition-metal', group: 9, period: 4, state: 'solid', electronConfig: '[Ar] 3d⁷ 4s²', electronegativity: 1.88, atomicRadius: 125, ionizationEnergy: 7.881, density: 8.86, meltingPoint: 1495, boilingPoint: 2927, discoveryYear: 1735},
+            {id: 28, symbol: 'Ni', name: 'Nickel', atomicWeight: 58.693, category: 'transition-metal', group: 10, period: 4, state: 'solid', electronConfig: '[Ar] 3d⁸ 4s²', electronegativity: 1.91, atomicRadius: 124, ionizationEnergy: 7.640, density: 8.912, meltingPoint: 1455, boilingPoint: 2913, discoveryYear: 1751},
+            {id: 29, symbol: 'Cu', name: 'Kupfer', atomicWeight: 63.546, category: 'transition-metal', group: 11, period: 4, state: 'solid', electronConfig: '[Ar] 3d¹⁰ 4s¹', electronegativity: 1.90, atomicRadius: 128, ionizationEnergy: 7.726, density: 8.96, meltingPoint: 1084.62, boilingPoint: 2562, discoveryYear: 'Urzeit'},
+            {id: 30, symbol: 'Zn', name: 'Zink', atomicWeight: 65.38, category: 'transition-metal', group: 12, period: 4, state: 'solid', electronConfig: '[Ar] 3d¹⁰ 4s²', electronegativity: 1.65, atomicRadius: 134, ionizationEnergy: 9.394, density: 7.134, meltingPoint: 419.53, boilingPoint: 907, discoveryYear: 'Urzeit'},
+            {id: 31, symbol: 'Ga', name: 'Gallium', atomicWeight: 69.723, category: 'post-transition', group: 13, period: 4, state: 'solid', electronConfig: '[Ar] 3d¹⁰ 4s² 4p¹', electronegativity: 1.81, atomicRadius: 135, ionizationEnergy: 5.999, density: 5.907, meltingPoint: 29.76, boilingPoint: 2204, discoveryYear: 1875},
+            {id: 32, symbol: 'Ge', name: 'Germanium', atomicWeight: 72.630, category: 'metalloid', group: 14, period: 4, state: 'solid', electronConfig: '[Ar] 3d¹⁰ 4s² 4p²', electronegativity: 2.01, atomicRadius: 122, ionizationEnergy: 7.900, density: 5.323, meltingPoint: 938.25, boilingPoint: 2833, discoveryYear: 1886},
+            {id: 33, symbol: 'As', name: 'Arsen', atomicWeight: 74.922, category: 'metalloid', group: 15, period: 4, state: 'solid', electronConfig: '[Ar] 3d¹⁰ 4s² 4p³', electronegativity: 2.18, atomicRadius: 119, ionizationEnergy: 9.815, density: 5.776, meltingPoint: 816.9, boilingPoint: 616, discoveryYear: 'Urzeit'},
+            {id: 34, symbol: 'Se', name: 'Selen', atomicWeight: 78.971, category: 'nonmetal', group: 16, period: 4, state: 'solid', electronConfig: '[Ar] 3d¹⁰ 4s² 4p⁴', electronegativity: 2.55, atomicRadius: 116, ionizationEnergy: 9.752, density: 4.809, meltingPoint: 221, boilingPoint: 685, discoveryYear: 1817},
+            {id: 35, symbol: 'Br', name: 'Brom', atomicWeight: 79.904, category: 'halogen', group: 17, period: 4, state: 'liquid', electronConfig: '[Ar] 3d¹⁰ 4s² 4p⁵', electronegativity: 2.96, atomicRadius: 114, ionizationEnergy: 11.814, density: 3.122, meltingPoint: -7.3, boilingPoint: 58.8, discoveryYear: 1826},
+            {id: 36, symbol: 'Kr', name: 'Krypton', atomicWeight: 83.798, category: 'noble-gas', group: 18, period: 4, state: 'gas', electronConfig: '[Ar] 3d¹⁰ 4s² 4p⁶', electronegativity: 3.00, atomicRadius: 110, ionizationEnergy: 14.000, density: 0.003733, meltingPoint: -157.36, boilingPoint: -153.22, discoveryYear: 1898},
+            {id: 37, symbol: 'Rb', name: 'Rubidium', atomicWeight: 85.468, category: 'alkali-metal', group: 1, period: 5, state: 'solid', electronConfig: '[Kr] 5s¹', electronegativity: 0.82, atomicRadius: 248, ionizationEnergy: 4.177, density: 1.532, meltingPoint: 39.31, boilingPoint: 688, discoveryYear: 1861},
+            {id: 38, symbol: 'Sr', name: 'Strontium', atomicWeight: 87.62, category: 'alkaline-earth', group: 2, period: 5, state: 'solid', electronConfig: '[Kr] 5s²', electronegativity: 0.95, atomicRadius: 215, ionizationEnergy: 5.695, density: 2.64, meltingPoint: 777, boilingPoint: 1382, discoveryYear: 1790},
+            {id: 39, symbol: 'Y', name: 'Yttrium', atomicWeight: 88.906, category: 'transition-metal', group: 3, period: 5, state: 'solid', electronConfig: '[Kr] 4d¹ 5s²', electronegativity: 1.22, atomicRadius: 180, ionizationEnergy: 6.217, density: 4.469, meltingPoint: 1526, boilingPoint: 3336, discoveryYear: 1794},
+            {id: 40, symbol: 'Zr', name: 'Zirconium', atomicWeight: 91.224, category: 'transition-metal', group: 4, period: 5, state: 'solid', electronConfig: '[Kr] 4d² 5s²', electronegativity: 1.33, atomicRadius: 160, ionizationEnergy: 6.634, density: 6.506, meltingPoint: 1855, boilingPoint: 4409, discoveryYear: 1789},
+            {id: 41, symbol: 'Nb', name: 'Niob', atomicWeight: 92.906, category: 'transition-metal', group: 5, period: 5, state: 'solid', electronConfig: '[Kr] 4d⁴ 5s¹', electronegativity: 1.6, atomicRadius: 146, ionizationEnergy: 6.759, density: 8.57, meltingPoint: 2477, boilingPoint: 4744, discoveryYear: 1801},
+            {id: 42, symbol: 'Mo', name: 'Molybdän', atomicWeight: 95.95, category: 'transition-metal', group: 6, period: 5, state: 'solid', electronConfig: '[Kr] 4d⁵ 5s¹', electronegativity: 2.16, atomicRadius: 139, ionizationEnergy: 7.092, density: 10.22, meltingPoint: 2623, boilingPoint: 4639, discoveryYear: 1778},
+            {id: 43, symbol: 'Tc', name: 'Technetium', atomicWeight: 98, category: 'transition-metal', group: 7, period: 5, state: 'solid', electronConfig: '[Kr] 4d⁵ 5s²', electronegativity: 1.9, atomicRadius: 136, ionizationEnergy: 7.28, density: 11, meltingPoint: 2157, boilingPoint: 4265, discoveryYear: 1937},
+            {id: 44, symbol: 'Ru', name: 'Ruthenium', atomicWeight: 101.07, category: 'transition-metal', group: 8, period: 5, state: 'solid', electronConfig: '[Kr] 4d⁷ 5s¹', electronegativity: 2.2, atomicRadius: 134, ionizationEnergy: 7.361, density: 12.37, meltingPoint: 2334, boilingPoint: 4150, discoveryYear: 1844},
+            {id: 45, symbol: 'Rh', name: 'Rhodium', atomicWeight: 102.91, category: 'transition-metal', group: 9, period: 5, state: 'solid', electronConfig: '[Kr] 4d⁸ 5s¹', electronegativity: 2.28, atomicRadius: 134, ionizationEnergy: 7.459, density: 12.41, meltingPoint: 1964, boilingPoint: 3695, discoveryYear: 1803},
+            {id: 46, symbol: 'Pd', name: 'Palladium', atomicWeight: 106.42, category: 'transition-metal', group: 10, period: 5, state: 'solid', electronConfig: '[Kr] 4d¹⁰', electronegativity: 2.2, atomicRadius: 137, ionizationEnergy: 8.337, density: 12.02, meltingPoint: 1555, boilingPoint: 2963, discoveryYear: 1803},
+            {id: 47, symbol: 'Ag', name: 'Silber', atomicWeight: 107.87, category: 'transition-metal', group: 11, period: 5, state: 'solid', electronConfig: '[Kr] 4d¹⁰ 5s¹', electronegativity: 1.93, atomicRadius: 144, ionizationEnergy: 7.576, density: 10.501, meltingPoint: 961.78, boilingPoint: 2162, discoveryYear: 'Urzeit'},
+            {id: 48, symbol: 'Cd', name: 'Cadmium', atomicWeight: 112.41, category: 'transition-metal', group: 12, period: 5, state: 'solid', electronConfig: '[Kr] 4d¹⁰ 5s²', electronegativity: 1.69, atomicRadius: 151, ionizationEnergy: 8.994, density: 8.69, meltingPoint: 321.07, boilingPoint: 767, discoveryYear: 1817},
+            {id: 49, symbol: 'In', name: 'Indium', atomicWeight: 114.82, category: 'post-transition', group: 13, period: 5, state: 'solid', electronConfig: '[Kr] 4d¹⁰ 5s² 5p¹', electronegativity: 1.78, atomicRadius: 167, ionizationEnergy: 5.786, density: 7.31, meltingPoint: 156.6, boilingPoint: 2072, discoveryYear: 1863},
+            {id: 50, symbol: 'Sn', name: 'Zinn', atomicWeight: 118.71, category: 'post-transition', group: 14, period: 5, state: 'solid', electronConfig: '[Kr] 4d¹⁰ 5s² 5p²', electronegativity: 1.96, atomicRadius: 140, ionizationEnergy: 7.344, density: 7.287, meltingPoint: 231.93, boilingPoint: 2602, discoveryYear: 'Urzeit'},
+            {id: 51, symbol: 'Sb', name: 'Antimon', atomicWeight: 121.76, category: 'metalloid', group: 15, period: 5, state: 'solid', electronConfig: '[Kr] 4d¹⁰ 5s² 5p³', electronegativity: 2.05, atomicRadius: 140, ionizationEnergy: 8.64, density: 6.685, meltingPoint: 630.63, boilingPoint: 1587, discoveryYear: 'Urzeit'},
+            {id: 52, symbol: 'Te', name: 'Tellur', atomicWeight: 127.60, category: 'metalloid', group: 16, period: 5, state: 'solid', electronConfig: '[Kr] 4d¹⁰ 5s² 5p⁴', electronegativity: 2.1, atomicRadius: 142, ionizationEnergy: 9.010, density: 6.232, meltingPoint: 449.51, boilingPoint: 988, discoveryYear: 1782},
+            {id: 53, symbol: 'I', name: 'Iod', atomicWeight: 126.90, category: 'halogen', group: 17, period: 5, state: 'solid', electronConfig: '[Kr] 4d¹⁰ 5s² 5p⁵', electronegativity: 2.66, atomicRadius: 140, ionizationEnergy: 10.451, density: 4.93, meltingPoint: 113.7, boilingPoint: 184.4, discoveryYear: 1811},
+            {id: 54, symbol: 'Xe', name: 'Xenon', atomicWeight: 131.29, category: 'noble-gas', group: 18, period: 5, state: 'gas', electronConfig: '[Kr] 4d¹⁰ 5s² 5p⁶', electronegativity: 2.6, atomicRadius: 136, ionizationEnergy: 12.130, density: 0.005887, meltingPoint: -111.8, boilingPoint: -108.1, discoveryYear: 1898},
+            {id: 55, symbol: 'Cs', name: 'Cäsium', atomicWeight: 132.91, category: 'alkali-metal', group: 1, period: 6, state: 'solid', electronConfig: '[Xe] 6s¹', electronegativity: 0.79, atomicRadius: 265, ionizationEnergy: 3.894, density: 1.873, meltingPoint: 28.44, boilingPoint: 671, discoveryYear: 1860},
+            {id: 56, symbol: 'Ba', name: 'Barium', atomicWeight: 137.33, category: 'alkaline-earth', group: 2, period: 6, state: 'solid', electronConfig: '[Xe] 6s²', electronegativity: 0.89, atomicRadius: 222, ionizationEnergy: 5.212, density: 3.594, meltingPoint: 727, boilingPoint: 1897, discoveryYear: 1808},
+            
+            // Lanthanides
+            {id: 57, symbol: 'La', name: 'Lanthan', atomicWeight: 138.91, category: 'lanthanide', group: 3, period: 6, state: 'solid', electronConfig: '[Xe] 5d¹ 6s²', electronegativity: 1.1, atomicRadius: 187, ionizationEnergy: 5.577, density: 6.145, meltingPoint: 920, boilingPoint: 3464, discoveryYear: 1839},
+            {id: 58, symbol: 'Ce', name: 'Cer', atomicWeight: 140.12, category: 'lanthanide', group: 101, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹ 5d¹ 6s²', electronegativity: 1.12, atomicRadius: 182, ionizationEnergy: 5.539, density: 6.77, meltingPoint: 798, boilingPoint: 3443, discoveryYear: 1803},
+            {id: 59, symbol: 'Pr', name: 'Praseodym', atomicWeight: 140.91, category: 'lanthanide', group: 101, period: 6, state: 'solid', electronConfig: '[Xe] 4f³ 6s²', electronegativity: 1.13, atomicRadius: 182, ionizationEnergy: 5.464, density: 6.773, meltingPoint: 931, boilingPoint: 3520, discoveryYear: 1885},
+            {id: 60, symbol: 'Nd', name: 'Neodym', atomicWeight: 144.24, category: 'lanthanide', group: 101, period: 6, state: 'solid', electronConfig: '[Xe] 4f⁴ 6s²', electronegativity: 1.14, atomicRadius: 181, ionizationEnergy: 5.525, density: 7.007, meltingPoint: 1016, boilingPoint: 3074, discoveryYear: 1885},
+            {id: 61, symbol: 'Pm', name: 'Promethium', atomicWeight: 145, category: 'lanthanide', group: 101, period: 6, state: 'solid', electronConfig: '[Xe] 4f⁵ 6s²', electronegativity: 1.13, atomicRadius: 183, ionizationEnergy: 5.55, density: 7.26, meltingPoint: 1042, boilingPoint: 3000, discoveryYear: 1945},
+            {id: 62, symbol: 'Sm', name: 'Samarium', atomicWeight: 150.36, category: 'lanthanide', group: 101, period: 6, state: 'solid', electronConfig: '[Xe] 4f⁶ 6s²', electronegativity: 1.17, atomicRadius: 180, ionizationEnergy: 5.644, density: 7.52, meltingPoint: 1072, boilingPoint: 1794, discoveryYear: 1879},
+            {id: 63, symbol: 'Eu', name: 'Europium', atomicWeight: 151.96, category: 'lanthanide', group: 101, period: 6, state: 'solid', electronConfig: '[Xe] 4f⁷ 6s²', electronegativity: 1.2, atomicRadius: 208, ionizationEnergy: 5.670, density: 5.243, meltingPoint: 822, boilingPoint: 1529, discoveryYear: 1901},
+            {id: 64, symbol: 'Gd', name: 'Gadolinium', atomicWeight: 157.25, category: 'lanthanide', group: 101, period: 6, state: 'solid', electronConfig: '[Xe] 4f⁷ 5d¹ 6s²', electronegativity: 1.2, atomicRadius: 180, ionizationEnergy: 6.150, density: 7.895, meltingPoint: 1313, boilingPoint: 3273, discoveryYear: 1880},
+            {id: 65, symbol: 'Tb', name: 'Terbium', atomicWeight: 158.93, category: 'lanthanide', group: 101, period: 6, state: 'solid', electronConfig: '[Xe] 4f⁹ 6s²', electronegativity: 1.2, atomicRadius: 177, ionizationEnergy: 5.864, density: 8.229, meltingPoint: 1356, boilingPoint: 3230, discoveryYear: 1843},
+            {id: 66, symbol: 'Dy', name: 'Dysprosium', atomicWeight: 162.50, category: 'lanthanide', group: 101, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁰ 6s²', electronegativity: 1.22, atomicRadius: 178, ionizationEnergy: 5.939, density: 8.55, meltingPoint: 1412, boilingPoint: 2567, discoveryYear: 1886},
+            {id: 67, symbol: 'Ho', name: 'Holmium', atomicWeight: 164.93, category: 'lanthanide', group: 101, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹¹ 6s²', electronegativity: 1.23, atomicRadius: 176, ionizationEnergy: 6.022, density: 8.795, meltingPoint: 1474, boilingPoint: 2700, discoveryYear: 1878},
+            {id: 68, symbol: 'Er', name: 'Erbium', atomicWeight: 167.26, category: 'lanthanide', group: 101, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹² 6s²', electronegativity: 1.24, atomicRadius: 176, ionizationEnergy: 6.108, density: 9.066, meltingPoint: 1529, boilingPoint: 2868, discoveryYear: 1842},
+            {id: 69, symbol: 'Tm', name: 'Thulium', atomicWeight: 168.93, category: 'lanthanide', group: 101, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹³ 6s²', electronegativity: 1.25, atomicRadius: 176, ionizationEnergy: 6.184, density: 9.321, meltingPoint: 1545, boilingPoint: 1950, discoveryYear: 1879},
+            {id: 70, symbol: 'Yb', name: 'Ytterbium', atomicWeight: 173.05, category: 'lanthanide', group: 101, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 6s²', electronegativity: 1.1, atomicRadius: 176, ionizationEnergy: 6.254, density: 6.965, meltingPoint: 819, boilingPoint: 1196, discoveryYear: 1878},
+            {id: 71, symbol: 'Lu', name: 'Lutetium', atomicWeight: 174.97, category: 'lanthanide', group: 101, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 5d¹ 6s²', electronegativity: 1.27, atomicRadius: 174, ionizationEnergy: 5.426, density: 9.84, meltingPoint: 1663, boilingPoint: 3402, discoveryYear: 1907},
+        
+            // Continuing the main table after lanthanides
+            {id: 72, symbol: 'Hf', name: 'Hafnium', atomicWeight: 178.49, category: 'transition-metal', group: 4, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 5d² 6s²', electronegativity: 1.3, atomicRadius: 159, ionizationEnergy: 6.825, density: 13.31, meltingPoint: 2233, boilingPoint: 4603, discoveryYear: 1923},
+            {id: 73, symbol: 'Ta', name: 'Tantal', atomicWeight: 180.95, category: 'transition-metal', group: 5, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 5d³ 6s²', electronegativity: 1.5, atomicRadius: 146, ionizationEnergy: 7.89, density: 16.654, meltingPoint: 3017, boilingPoint: 5458, discoveryYear: 1802},
+            {id: 74, symbol: 'W', name: 'Wolfram', atomicWeight: 183.84, category: 'transition-metal', group: 6, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 5d⁴ 6s²', electronegativity: 2.36, atomicRadius: 139, ionizationEnergy: 7.98, density: 19.25, meltingPoint: 3422, boilingPoint: 5930, discoveryYear: 1783},
+            {id: 75, symbol: 'Re', name: 'Rhenium', atomicWeight: 186.21, category: 'transition-metal', group: 7, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 5d⁵ 6s²', electronegativity: 1.9, atomicRadius: 137, ionizationEnergy: 7.88, density: 21.02, meltingPoint: 3186, boilingPoint: 5596, discoveryYear: 1925},
+            {id: 76, symbol: 'Os', name: 'Osmium', atomicWeight: 190.23, category: 'transition-metal', group: 8, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 5d⁶ 6s²', electronegativity: 2.2, atomicRadius: 135, ionizationEnergy: 8.7, density: 22.59, meltingPoint: 3033, boilingPoint: 5012, discoveryYear: 1803},
+            {id: 77, symbol: 'Ir', name: 'Iridium', atomicWeight: 192.22, category: 'transition-metal', group: 9, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 5d⁷ 6s²', electronegativity: 2.2, atomicRadius: 136, ionizationEnergy: 9.1, density: 22.56, meltingPoint: 2446, boilingPoint: 4428, discoveryYear: 1803},
+            {id: 78, symbol: 'Pt', name: 'Platin', atomicWeight: 195.08, category: 'transition-metal', group: 10, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 5d⁹ 6s¹', electronegativity: 2.28, atomicRadius: 139, ionizationEnergy: 9.0, density: 21.45, meltingPoint: 1768.3, boilingPoint: 3825, discoveryYear: 1735},
+            {id: 79, symbol: 'Au', name: 'Gold', atomicWeight: 196.97, category: 'transition-metal', group: 11, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 5d¹⁰ 6s¹', electronegativity: 2.54, atomicRadius: 144, ionizationEnergy: 9.226, density: 19.3, meltingPoint: 1064.18, boilingPoint: 2856, discoveryYear: 'Urzeit'},
+            {id: 80, symbol: 'Hg', name: 'Quecksilber', atomicWeight: 200.59, category: 'transition-metal', group: 12, period: 6, state: 'liquid', electronConfig: '[Xe] 4f¹⁴ 5d¹⁰ 6s²', electronegativity: 2.0, atomicRadius: 151, ionizationEnergy: 10.438, density: 13.546, meltingPoint: -38.83, boilingPoint: 356.73, discoveryYear: 'Urzeit'},
+            {id: 81, symbol: 'Tl', name: 'Thallium', atomicWeight: 204.38, category: 'post-transition', group: 13, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p¹', electronegativity: 1.62, atomicRadius: 170, ionizationEnergy: 6.108, density: 11.85, meltingPoint: 304, boilingPoint: 1473, discoveryYear: 1861},
+            {id: 82, symbol: 'Pb', name: 'Blei', atomicWeight: 207.2, category: 'post-transition', group: 14, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p²', electronegativity: 2.33, atomicRadius: 175, ionizationEnergy: 7.417, density: 11.34, meltingPoint: 327.46, boilingPoint: 1749, discoveryYear: 'Urzeit'},
+            {id: 83, symbol: 'Bi', name: 'Bismut', atomicWeight: 208.98, category: 'post-transition', group: 15, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p³', electronegativity: 2.02, atomicRadius: 156, ionizationEnergy: 7.289, density: 9.78, meltingPoint: 271.4, boilingPoint: 1564, discoveryYear: 'Urzeit'},
+            {id: 84, symbol: 'Po', name: 'Polonium', atomicWeight: 209, category: 'post-transition', group: 16, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁴', electronegativity: 2.0, atomicRadius: 164, ionizationEnergy: 8.417, density: 9.32, meltingPoint: 254, boilingPoint: 962, discoveryYear: 1898},
+            {id: 85, symbol: 'At', name: 'Astat', atomicWeight: 210, category: 'halogen', group: 17, period: 6, state: 'solid', electronConfig: '[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁵', electronegativity: 2.2, atomicRadius: 170, ionizationEnergy: 9.5, density: 7, meltingPoint: 302, boilingPoint: 337, discoveryYear: 1940},
+            {id: 86, symbol: 'Rn', name: 'Radon', atomicWeight: 222, category: 'noble-gas', group: 18, period: 6, state: 'gas', electronConfig: '[Xe] 4f¹⁴ 5d¹⁰ 6s² 6p⁶', electronegativity: null, atomicRadius: 150, ionizationEnergy: 10.745, density: 0.00973, meltingPoint: -71, boilingPoint: -61.7, discoveryYear: 1900},
+            {id: 87, symbol: 'Fr', name: 'Francium', atomicWeight: 223, category: 'alkali-metal', group: 1, period: 7, state: 'solid', electronConfig: '[Rn] 7s¹', electronegativity: 0.7, atomicRadius: 260, ionizationEnergy: 4.073, density: 1.87, meltingPoint: 27, boilingPoint: 677, discoveryYear: 1939},
+            {id: 88, symbol: 'Ra', name: 'Radium', atomicWeight: 226, category: 'alkaline-earth', group: 2, period: 7, state: 'solid', electronConfig: '[Rn] 7s²', electronegativity: 0.9, atomicRadius: 221, ionizationEnergy: 5.279, density: 5.5, meltingPoint: 700, boilingPoint: 1737, discoveryYear: 1898},
+            
+            // Actinides
+            {id: 89, symbol: 'Ac', name: 'Actinium', atomicWeight: 227, category: 'actinide', group: 3, period: 7, state: 'solid', electronConfig: '[Rn] 6d¹ 7s²', electronegativity: 1.1, atomicRadius: 215, ionizationEnergy: 5.17, density: 10.07, meltingPoint: 1050, boilingPoint: 3200, discoveryYear: 1899},
+            {id: 90, symbol: 'Th', name: 'Thorium', atomicWeight: 232.04, category: 'actinide', group: 102, period: 7, state: 'solid', electronConfig: '[Rn] 6d² 7s²', electronegativity: 1.3, atomicRadius: 206, ionizationEnergy: 6.08, density: 11.72, meltingPoint: 1842, boilingPoint: 4788, discoveryYear: 1829},
+            {id: 91, symbol: 'Pa', name: 'Protactinium', atomicWeight: 231.04, category: 'actinide', group: 102, period: 7, state: 'solid', electronConfig: '[Rn] 5f² 6d¹ 7s²', electronegativity: 1.5, atomicRadius: 200, ionizationEnergy: 5.89, density: 15.37, meltingPoint: 1568, boilingPoint: 4027, discoveryYear: 1913},
+            {id: 92, symbol: 'U', name: 'Uran', atomicWeight: 238.03, category: 'actinide', group: 102, period: 7, state: 'solid', electronConfig: '[Rn] 5f³ 6d¹ 7s²', electronegativity: 1.38, atomicRadius: 196, ionizationEnergy: 6.194, density: 18.95, meltingPoint: 1132.2, boilingPoint: 4131, discoveryYear: 1789},
+            {id: 93, symbol: 'Np', name: 'Neptunium', atomicWeight: 237, category: 'actinide', group: 102, period: 7, state: 'solid', electronConfig: '[Rn] 5f⁴ 6d¹ 7s²', electronegativity: 1.36, atomicRadius: 190, ionizationEnergy: 6.266, density: 20.25, meltingPoint: 644, boilingPoint: 4000, discoveryYear: 1940},
+            {id: 94, symbol: 'Pu', name: 'Plutonium', atomicWeight: 244, category: 'actinide', group: 102, period: 7, state: 'solid', electronConfig: '[Rn] 5f⁶ 7s²', electronegativity: 1.28, atomicRadius: 187, ionizationEnergy: 6.06, density: 19.84, meltingPoint: 640, boilingPoint: 3230, discoveryYear: 1940},
+            {id: 95, symbol: 'Am', name: 'Americium', atomicWeight: 243, category: 'actinide', group: 102, period: 7, state: 'solid', electronConfig: '[Rn] 5f⁷ 7s²', electronegativity: 1.3, atomicRadius: 180, ionizationEnergy: 5.993, density: 13.67, meltingPoint: 1176, boilingPoint: 2607, discoveryYear: 1944},
+            {id: 96, symbol: 'Cm', name: 'Curium', atomicWeight: 247, category: 'actinide', group: 102, period: 7, state: 'solid', electronConfig: '[Rn] 5f⁷ 6d¹ 7s²', electronegativity: 1.3, atomicRadius: 169, ionizationEnergy: 6.02, density: 13.51, meltingPoint: 1345, boilingPoint: 3110, discoveryYear: 1944},
+            {id: 97, symbol: 'Bk', name: 'Berkelium', atomicWeight: 247, category: 'actinide', group: 102, period: 7, state: 'solid', electronConfig: '[Rn] 5f⁹ 7s²', electronegativity: 1.3, atomicRadius: 170, ionizationEnergy: 6.23, density: 14.78, meltingPoint: 1050, boilingPoint: null, discoveryYear: 1949},
+            {id: 98, symbol: 'Cf', name: 'Californium', atomicWeight: 251, category: 'actinide', group: 102, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁰ 7s²', electronegativity: 1.3, atomicRadius: null, ionizationEnergy: 6.3, density: 15.1, meltingPoint: 900, boilingPoint: null, discoveryYear: 1950},
+            {id: 99, symbol: 'Es', name: 'Einsteinium', atomicWeight: 252, category: 'actinide', group: 102, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹¹ 7s²', electronegativity: 1.3, atomicRadius: null, ionizationEnergy: 6.42, density: 13.5, meltingPoint: 860, boilingPoint: null, discoveryYear: 1952},
+            {id: 100, symbol: 'Fm', name: 'Fermium', atomicWeight: 257, category: 'actinide', group: 102, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹² 7s²', electronegativity: 1.3, atomicRadius: null, ionizationEnergy: 6.5, density: null, meltingPoint: 1527, boilingPoint: null, discoveryYear: 1952},
+            {id: 101, symbol: 'Md', name: 'Mendelevium', atomicWeight: 258, category: 'actinide', group: 102, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹³ 7s²', electronegativity: 1.3, atomicRadius: null, ionizationEnergy: 6.58, density: null, meltingPoint: 827, boilingPoint: null, discoveryYear: 1955},
+            {id: 102, symbol: 'No', name: 'Nobelium', atomicWeight: 259, category: 'actinide', group: 102, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 7s²', electronegativity: 1.3, atomicRadius: null, ionizationEnergy: 6.65, density: null, meltingPoint: 827, boilingPoint: null, discoveryYear: 1958},
+            {id: 103, symbol: 'Lr', name: 'Lawrencium', atomicWeight: 266, category: 'actinide', group: 102, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 7s² 7p¹', electronegativity: 1.3, atomicRadius: null, ionizationEnergy: 4.9, density: null, meltingPoint: 1627, boilingPoint: null, discoveryYear: 1961},
+            
+            // Rest of period 7
+            {id: 104, symbol: 'Rf', name: 'Rutherfordium', atomicWeight: 267, category: 'transition-metal', group: 4, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 6d² 7s²', electronegativity: null, atomicRadius: null, ionizationEnergy: 6.0, density: 23.2, meltingPoint: 2100, boilingPoint: 5800, discoveryYear: 1964},
+            {id: 105, symbol: 'Db', name: 'Dubnium', atomicWeight: 268, category: 'transition-metal', group: 5, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 6d³ 7s²', electronegativity: null, atomicRadius: null, ionizationEnergy: null, density: 29.3, meltingPoint: null, boilingPoint: null, discoveryYear: 1967},
+            {id: 106, symbol: 'Sg', name: 'Seaborgium', atomicWeight: 269, category: 'transition-metal', group: 6, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 6d⁴ 7s²', electronegativity: null, atomicRadius: null, ionizationEnergy: null, density: 35.0, meltingPoint: null, boilingPoint: null, discoveryYear: 1974},
+            {id: 107, symbol: 'Bh', name: 'Bohrium', atomicWeight: 270, category: 'transition-metal', group: 7, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 6d⁵ 7s²', electronegativity: null, atomicRadius: null, ionizationEnergy: null, density: 37.1, meltingPoint: null, boilingPoint: null, discoveryYear: 1981},
+            {id: 108, symbol: 'Hs', name: 'Hassium', atomicWeight: 277, category: 'transition-metal', group: 8, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 6d⁶ 7s²', electronegativity: null, atomicRadius: null, ionizationEnergy: null, density: 40.7, meltingPoint: null, boilingPoint: null, discoveryYear: 1984},
+            {id: 109, symbol: 'Mt', name: 'Meitnerium', atomicWeight: 278, category: 'unknown', group: 9, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 6d⁷ 7s²', electronegativity: null, atomicRadius: null, ionizationEnergy: null, density: 37.4, meltingPoint: null, boilingPoint: null, discoveryYear: 1982},
+            {id: 110, symbol: 'Ds', name: 'Darmstadtium', atomicWeight: 281, category: 'unknown', group: 10, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 6d⁸ 7s²', electronegativity: null, atomicRadius: null, ionizationEnergy: null, density: 34.8, meltingPoint: null, boilingPoint: null, discoveryYear: 1994},
+            {id: 111, symbol: 'Rg', name: 'Roentgenium', atomicWeight: 282, category: 'unknown', group: 11, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 6d⁹ 7s²', electronegativity: null, atomicRadius: null, ionizationEnergy: null, density: 28.7, meltingPoint: null, boilingPoint: null, discoveryYear: 1994},
+            {id: 112, symbol: 'Cn', name: 'Copernicium', atomicWeight: 285, category: 'unknown', group: 12, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 6d¹⁰ 7s²', electronegativity: null, atomicRadius: null, ionizationEnergy: null, density: 23.7, meltingPoint: null, boilingPoint: null, discoveryYear: 1996},
+            {id: 113, symbol: 'Nh', name: 'Nihonium', atomicWeight: 286, category: 'unknown', group: 13, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p¹', electronegativity: null, atomicRadius: null, ionizationEnergy: null, density: 16, meltingPoint: null, boilingPoint: null, discoveryYear: 2004},
+            {id: 114, symbol: 'Fl', name: 'Flerovium', atomicWeight: 289, category: 'unknown', group: 14, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p²', electronegativity: null, atomicRadius: null, ionizationEnergy: null, density: 14, meltingPoint: null, boilingPoint: null, discoveryYear: 1999},
+            {id: 115, symbol: 'Mc', name: 'Moscovium', atomicWeight: 290, category: 'unknown', group: 15, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p³', electronegativity: null, atomicRadius: null, ionizationEnergy: null, density: 13.5, meltingPoint: null, boilingPoint: null, discoveryYear: 2004},
+            {id: 116, symbol: 'Lv', name: 'Livermorium', atomicWeight: 293, category: 'unknown', group: 16, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁴', electronegativity: null, atomicRadius: null, ionizationEnergy: null, density: 12.9, meltingPoint: null, boilingPoint: null, discoveryYear: 2000},
+            {id: 117, symbol: 'Ts', name: 'Tennessine', atomicWeight: 294, category: 'unknown', group: 17, period: 7, state: 'solid', electronConfig: '[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁵', electronegativity: null, atomicRadius: null, ionizationEnergy: null, density: 7.2, meltingPoint: null, boilingPoint: null, discoveryYear: 2010},
+            {id: 118, symbol: 'Og', name: 'Oganesson', atomicWeight: 294, category: 'unknown', group: 18, period: 7, state: 'gas', electronConfig: '[Rn] 5f¹⁴ 6d¹⁰ 7s² 7p⁶', electronegativity: null, atomicRadius: null, ionizationEnergy: null, density: 5, meltingPoint: null, boilingPoint: null, discoveryYear: 2006}
+        ];
+        
+        // Categories and their descriptions
+        const categories = {
+            'alkali-metal': 'Alkalimetalle',
+            'alkaline-earth': 'Erdalkalimetalle',
+            'transition-metal': 'Übergangsmetalle',
+            'post-transition': 'Nachübergangsmetalle',
+            'metalloid': 'Halbmetalle',
+            'nonmetal': 'Nichtmetalle',
+            'halogen': 'Halogene',
+            'noble-gas': 'Edelgase',
+            'lanthanide': 'Lanthanoide',
+            'actinide': 'Actinoide',
+            'unknown': 'Unbekannte Eigenschaften'
+        };
+        
+        // States and their descriptions
+        const states = {
+            'solid': 'Fest',
+            'liquid': 'Flüssig',
+            'gas': 'Gasförmig'
+        };
+        
+        // Initialize the periodic table
+        function initPeriodicTable() {
+            const table = document.getElementById('periodic-table');
+            
+            // Clean the table
+            table.innerHTML = '';
+            
+            // Get the current color scheme
+            const colorScheme = document.getElementById('color-scheme').value;
+            
+            // Create the periodic table
+            for (let period = 1; period <= 7; period++) {
+                for (let group = 1; group <= 18; group++) {
+                    // Find the element at this position
+                    const element = elements.find(e => e.group === group && e.period === period);
+                    
+                    // Create element cell
+                    if (element) {
+                        const cell = document.createElement('div');
+                        cell.classList.add('element');
+                        
+                        // Set color based on the selected scheme
+                        if (colorScheme === 'category') {
+                            cell.classList.add(element.category);
+                        } else if (colorScheme === 'state') {
+                            cell.classList.add(element.state + '-state');
+                            cell.style.backgroundColor = element.state === 'solid' ? '#4caf50' : 
+                                                       element.state === 'liquid' ? '#2196f3' : 
+                                                       element.state === 'gas' ? '#ff9800' : '#9e9e9e';
+                        } else if (colorScheme === 'period') {
+                            // Create a color gradient based on period
+                            const hue = 240 - (period - 1) * 30;
+                            cell.style.backgroundColor = `hsl(${hue}, 70%, 60%)`;
+                        }
+                        
+                        cell.dataset.id = element.id;
+                        
+                        // Add content
+                        cell.innerHTML = `
+                            <div class="atomic-number">${element.id}</div>
+                            <div class="symbol">${element.symbol}</div>
+                            <div class="name">${element.name}</div>
+                            <div class="weight">${element.atomicWeight}</div>
+                        `;
+                        
+                        // Add event listeners
+                        cell.addEventListener('click', () => showElementDetails(element));
+                        cell.addEventListener('mouseover', (e) => showTooltip(e, element));
+                        cell.addEventListener('mouseout', hideTooltip);
+                        
+                        table.appendChild(cell);
+                    } else {
+                        // Empty cell for spacing
+                        const emptyCell = document.createElement('div');
+                        
+                        // Special case: Lanthanides and Actinides placeholders
+                        if (period === 6 && group === 3) {
+                            const placeholder = document.createElement('div');
+                            placeholder.classList.add('element', 'lanthanide');
+                            placeholder.innerHTML = `
+                                <div class="atomic-number">57-71</div>
+                                <div class="symbol">La-Lu</div>
+                                <div class="name">Lanthanoide</div>
+                            `;
+                            table.appendChild(placeholder);
+                        } else if (period === 7 && group === 3) {
+                            const placeholder = document.createElement('div');
+                            placeholder.classList.add('element', 'actinide');
+                            placeholder.innerHTML = `
+                                <div class="atomic-number">89-103</div>
+                                <div class="symbol">Ac-Lr</div>
+                                <div class="name">Actinoide</div>
+                            `;
+                            table.appendChild(placeholder);
+                        } else {
+                            table.appendChild(emptyCell);
+                        }
+                    }
+                }
+            }
+            
+            // Add spacer between main table and lanthanides/actinides
+            const spacer = document.createElement('div');
+            spacer.classList.add('separator');
+            spacer.textContent = '⋯';
+            table.appendChild(spacer);
+            
+            // Add lanthanides row (Period 8 and 9 for display purposes)
+            for (let i = 57; i <= 71; i++) {
+                const element = elements.find(e => e.id === i);
+                if (element) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('element', element.category);
+                    
+                    if (colorScheme === 'state') {
+                        cell.style.backgroundColor = element.state === 'solid' ? '#4caf50' : 
+                                                   element.state === 'liquid' ? '#2196f3' : 
+                                                   element.state === 'gas' ? '#ff9800' : '#9e9e9e';
+                    } else if (colorScheme === 'period') {
+                        const hue = 240 - (8 - 1) * 30;
+                        cell.style.backgroundColor = `hsl(${hue}, 70%, 60%)`;
+                    }
+                    
+                    cell.dataset.id = element.id;
+                    
+                    cell.innerHTML = `
+                        <div class="atomic-number">${element.id}</div>
+                        <div class="symbol">${element.symbol}</div>
+                        <div class="name">${element.name}</div>
+                        <div class="weight">${element.atomicWeight}</div>
+                    `;
+                    
+                    cell.addEventListener('click', () => showElementDetails(element));
+                    cell.addEventListener('mouseover', (e) => showTooltip(e, element));
+                    cell.addEventListener('mouseout', hideTooltip);
+                    
+                    table.appendChild(cell);
+                }
+            }
+            
+            // Empty cells for lanthanide row alignment
+            for (let i = 0; i < 18 - 15; i++) {
+                const emptyCell = document.createElement('div');
+                table.appendChild(emptyCell);
+            }
+            
+            // Add actinides row
+            for (let i = 89; i <= 103; i++) {
+                const element = elements.find(e => e.id === i);
+                if (element) {
+                    const cell = document.createElement('div');
+                    cell.classList.add('element', element.category);
+                    
+                    if (colorScheme === 'state') {
+                        cell.style.backgroundColor = element.state === 'solid' ? '#4caf50' : 
+                                                   element.state === 'liquid' ? '#2196f3' : 
+                                                   element.state === 'gas' ? '#ff9800' : '#9e9e9e';
+                    } else if (colorScheme === 'period') {
+                        const hue = 240 - (9 - 1) * 30;
+                        cell.style.backgroundColor = `hsl(${hue}, 70%, 60%)`;
+                    }
+                    
+                    cell.dataset.id = element.id;
+                    
+                    cell.innerHTML = `
+                        <div class="atomic-number">${element.id}</div>
+                        <div class="symbol">${element.symbol}</div>
+                        <div class="name">${element.name}</div>
+                        <div class="weight">${element.atomicWeight}</div>
+                    `;
+                    
+                    cell.addEventListener('click', () => showElementDetails(element));
+                    cell.addEventListener('mouseover', (e) => showTooltip(e, element));
+                    cell.addEventListener('mouseout', hideTooltip);
+                    
+                    table.appendChild(cell);
+                }
+            }
+            
+            // Update the legend based on the current color scheme
+            updateLegend(colorScheme);
+        }
+        
+        // Update the legend based on the selected color scheme
+        function updateLegend(scheme) {
+            const legend = document.getElementById('legend');
+            legend.innerHTML = '';
+            
+            if (scheme === 'category') {
+                // Add legend items for categories
+                for (const [category, description] of Object.entries(categories)) {
+                    const legendItem = document.createElement('div');
+                    legendItem.classList.add('legend-item');
+                    
+                    const colorBox = document.createElement('div');
+                    colorBox.classList.add('legend-color', category);
+                    
+                    const text = document.createElement('span');
+                    text.textContent = description;
+                    
+                    legendItem.appendChild(colorBox);
+                    legendItem.appendChild(text);
+                    legend.appendChild(legendItem);
+                }
+            } else if (scheme === 'state') {
+                // Add legend items for states
+                for (const [state, description] of Object.entries(states)) {
+                    const legendItem = document.createElement('div');
+                    legendItem.classList.add('legend-item');
+                    
+                    const colorBox = document.createElement('div');
+                    colorBox.classList.add('legend-color');
+                    colorBox.style.backgroundColor = state === 'solid' ? '#4caf50' : 
+                                                 state === 'liquid' ? '#2196f3' : 
+                                                 '#ff9800';
+                    
+                    const text = document.createElement('span');
+                    text.textContent = description;
+                    
+                    legendItem.appendChild(colorBox);
+                    legendItem.appendChild(text);
+                    legend.appendChild(legendItem);
+                }
+            } else if (scheme === 'period') {
+                // Add legend items for periods
+                for (let period = 1; period <= 7; period++) {
+                    const legendItem = document.createElement('div');
+                    legendItem.classList.add('legend-item');
+                    
+                    const colorBox = document.createElement('div');
+                    colorBox.classList.add('legend-color');
+                    const hue = 240 - (period - 1) * 30;
+                    colorBox.style.backgroundColor = `hsl(${hue}, 70%, 60%)`;
+                    
+                    const text = document.createElement('span');
+                    text.textContent = `Periode ${period}`;
+                    
+                    legendItem.appendChild(colorBox);
+                    legendItem.appendChild(text);
+                    legend.appendChild(legendItem);
+                }
+            }
+        }
+        
+        // Show element details
+        function showElementDetails(element) {
+            const detailSymbol = document.getElementById('detail-symbol');
+            const detailName = document.getElementById('detail-name');
+            const elementProperties = document.getElementById('element-properties');
+            const overlay = document.getElementById('overlay');
+            const elementDetail = document.getElementById('element-detail');
+            
+            // Set the element details
+            detailSymbol.textContent = element.symbol;
+            detailName.textContent = `${element.name} (${element.id})`;
+            
+            // Set the element properties
+            elementProperties.innerHTML = `
+                <div class="property-row">
+                    <span class="property-name">Kategorie:</span>
+                    <span>${categories[element.category] || '-'}</span>
+                </div>
+                <div class="property-row">
+                    <span class="property-name">Atomgewicht:</span>
+                    <span>${element.atomicWeight} u</span>
+                </div>
+                <div class="property-row">
+                    <span class="property-name">Aggregatzustand:</span>
+                    <span>${states[element.state] || '-'}</span>
+                </div>
+                <div class="property-row">
+                    <span class="property-name">Elektronenkonfiguration:</span>
+                    <span>${element.electronConfig}</span>
+                </div>
+                <div class="property-row">
+                    <span class="property-name">Elektronegatitivität:</span>
+                    <span>${element.electronegativity !== null ? element.electronegativity : '-'}</span>
+                </div>
+                <div class="property-row">
+                    <span class="property-name">Atomradius:</span>
+                    <span>${element.atomicRadius !== null ? element.atomicRadius + ' pm' : '-'}</span>
+                </div>
+                <div class="property-row">
+                    <span class="property-name">Ionisierungsenergie:</span>
+                    <span>${element.ionizationEnergy !== null ? element.ionizationEnergy + ' eV' : '-'}</span>
+                </div>
+                <div class="property-row">
+                    <span class="property-name">Dichte:</span>
+                    <span>${element.density !== null ? element.density + ' g/cm³' : '-'}</span>
+                </div>
+                <div class="property-row">
+                    <span class="property-name">Schmelzpunkt:</span>
+                    <span>${element.meltingPoint !== null ? element.meltingPoint + ' °C' : '-'}</span>
+                </div>
+                <div class="property-row">
+                    <span class="property-name">Siedepunkt:</span>
+                    <span>${element.boilingPoint !== null ? element.boilingPoint + ' °C' : '-'}</span>
+                </div>
+                <div class="property-row">
+                    <span class="property-name">Entdeckt:</span>
+                    <span>${element.discoveryYear}</span>
+                </div>
+                <div class="property-row">
+                    <span class="property-name">Gruppe:</span>
+                    <span>${element.group > 18 ? '-' : element.group}</span>
+                </div>
+                <div class="property-row">
+                    <span class="property-name">Periode:</span>
+                    <span>${element.period}</span>
+                </div>
+            `;
+            
+            // Show the overlay and detail popup
+            overlay.style.display = 'block';
+            elementDetail.style.display = 'block';
+            
+            // Initialize the 3D atom model
+            initAtomModel(element);
+        }
+        
+        // Initialize the atom model
+        function initAtomModel(element) {
+            const container = document.getElementById('atom-container');
+            container.innerHTML = '';
+            
+            // Create a new scene
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a0a);
+            
+            // Create a camera
+            const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.z = 5;
+            
+            // Create a renderer
+            const renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            container.appendChild(renderer.domElement);
+            
+            // Create a nucleus
+            const nucleusGeometry = new THREE.SphereGeometry(0.5, 32, 32);
+            const nucleusMaterial = new THREE.MeshBasicMaterial({ color: 0xff5252 });
+            const nucleus = new THREE.Mesh(nucleusGeometry, nucleusMaterial);
+            scene.add(nucleus);
+            
+            // Create electron shells based on the element's electron configuration
+            const shells = getElectronShells(element.electronConfig);
+            
+            // Create electron shells and electrons
+            const shellObjects = [];
+            const electronObjects = [];
+            
+            shells.forEach((electronCount, shellIndex) => {
+                // Create the shell
+                const shellRadius = 0.8 + shellIndex * 0.6;
+                const shellGeometry = new THREE.TorusGeometry(shellRadius, 0.02, 16, 100);
+                const shellMaterial = new THREE.MeshBasicMaterial({ color: 0x4fc3f7, transparent: true, opacity: 0.5 });
+                
+                // Create two perpendicular shells for 3D effect
+                const shell1 = new THREE.Mesh(shellGeometry, shellMaterial);
+                scene.add(shell1);
+                shellObjects.push(shell1);
+                
+                const shell2 = new THREE.Mesh(shellGeometry, shellMaterial);
+                shell2.rotation.x = Math.PI / 2;
+                scene.add(shell2);
+                shellObjects.push(shell2);
+                
+                // Create electrons for this shell
+                for (let i = 0; i < electronCount; i++) {
+                    const electronGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+                    const electronMaterial = new THREE.MeshBasicMaterial({ color: 0x4fc3f7 });
+                    const electron = new THREE.Mesh(electronGeometry, electronMaterial);
+                    
+                    // Position the electron on the shell
+                    const angle = (i / electronCount) * Math.PI * 2;
+                    electron.position.x = shellRadius * Math.cos(angle);
+                    electron.position.y = shellRadius * Math.sin(angle);
+                    
+                    scene.add(electron);
+                    electronObjects.push({ object: electron, shell: shellIndex, angle: angle, speed: 0.5 - shellIndex * 0.1 });
+                }
+            });
+            
+            // Animation function
+            function animate() {
+                requestAnimationFrame(animate);
+                
+                // Rotate the shells
+                shellObjects.forEach((shell, index) => {
+                    if (index % 2 === 0) {
+                        shell.rotation.z += 0.005;
+                    } else {
+                        shell.rotation.y += 0.005;
+                    }
+                });
+                
+                // Move the electrons around their shells
+                electronObjects.forEach(e => {
+                    e.angle += 0.01 * e.speed;
+                    
+                    const shellRadius = 0.8 + e.shell * 0.6;
+                    e.object.position.x = shellRadius * Math.cos(e.angle);
+                    e.object.position.y = shellRadius * Math.sin(e.angle);
+                });
+                
+                // Gently rotate the camera
+                camera.position.x = 5 * Math.cos(Date.now() * 0.0005);
+                camera.position.z = 5 * Math.sin(Date.now() * 0.0005);
+                camera.lookAt(scene.position);
+                
+                renderer.render(scene, camera);
+            }
+            
+            // Start the animation
+            animate();
+            
+            // Handle window resize
+            function onWindowResize() {
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }
+            
+            window.addEventListener('resize', onWindowResize);
+        }
+        
+        // Get electron shells from electron configuration
+        function getElectronShells(config) {
+            // This is a simplification
+            if (!config) return [1];
+            
+            const shells = [0, 0, 0, 0, 0, 0, 0]; // K, L, M, N, O, P, Q shells
+            
+            // Simple regex to extract shell info
+            const [fullMatch, shellNum, orbital, count] = match.match(/(\d+)([spdf])(\d+|\b)/) || [];
+            
+            if (shellMatches) {
+                shellMatches.forEach(match => {
+                    const [fullMatch, shellNum, orbital, count] = match.match(/(\d+)([spdf])(\d+|\b)/) || [];
+                    if (shellNum && count) {
+                        shells[parseInt(shellNum) - 1] += parseInt(count);
+                    }
+                });
+            }
+            
+            // Remove trailing zeros
+            while (shells.length > 0 && shells[shells.length - 1] === 0) {
+                shells.pop();
+            }
+            
+            return shells;
+        }
+        
+        // Show tooltip with element details
+        function showTooltip(event, element) {
+            const tooltip = document.getElementById('tooltip');
+            
+            tooltip.innerHTML = `
+                <div><strong>${element.name} (${element.symbol})</strong></div>
+                <div>Ordnungszahl: ${element.id}</div>
+                <div>Atomgewicht: ${element.atomicWeight}</div>
+                <div>Kategorie: ${categories[element.category]}</div>
+            `;
+            
+            // Position the tooltip
+            const rect = event.target.getBoundingClientRect();
+            tooltip.style.left = `${rect.left + window.scrollX + rect.width / 2}px`;
+            tooltip.style.top = `${rect.top + window.scrollY - tooltip.offsetHeight - 10}px`;
+            
+            // Show the tooltip
+            tooltip.style.opacity = '1';
+        }
+        
+        // Hide tooltip
+        function hideTooltip() {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.style.opacity = '0';
+        }
+        
+        // Close the element detail popup
+        document.getElementById('modal-close').addEventListener('click', () => {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('element-detail').style.display = 'none';
+        });
+        
+        // Close the popup when clicking on the overlay
+        document.getElementById('overlay').addEventListener('click', (event) => {
+            if (event.target === document.getElementById('overlay')) {
+                document.getElementById('overlay').style.display = 'none';
+                document.getElementById('element-detail').style.display = 'none';
+            }
+        });
+        
+        // Reset view button
+        document.getElementById('reset-view').addEventListener('click', () => {
+            document.getElementById('color-scheme').value = 'category';
+            initPeriodicTable();
+        });
+        
+        // Color scheme selection
+        document.getElementById('color-scheme').addEventListener('change', () => {
+            initPeriodicTable();
+        });
+        
+        // Initialize everything when the page loads
+        window.addEventListener('DOMContentLoaded', () => {
+            initPeriodicTable();
+        });
+    </script>
+</body>
+</html>
